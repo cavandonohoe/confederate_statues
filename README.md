@@ -17,7 +17,7 @@ fought for people to be enslaved.
 
 Check these out btw:
 
-1.  <https://www.youtube.com/watch?v=dOkFXPblLpU&feature=emb_title>
+1.  <https://www.youtube.com/watch?v=dOkFXPblLpU>
 2.  <https://www.youtube.com/watch?v=WClgR6Q0aPE>
 3.  <https://www.theguardian.com/us-news/2017/aug/16/confederate-monuments-civil-war-history-trump>
 
@@ -28,6 +28,11 @@ the youth by pretending slavery wasn’t the cause of the Civil War
 created
 
 ((3)) also talks about each peek and why these statues were created
+
+Also, we witness the most statues being built in a single year in 1910
+with 43 statues.
+
+These bins are of width = 5 years.
 
 ![](README_files/figure-gfm/graph1-1.png)<!-- -->
 
