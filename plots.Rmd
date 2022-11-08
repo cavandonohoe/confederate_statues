@@ -1,0 +1,53 @@
+---
+title: "Confederate Statues in the US"
+editor_options: 
+  chunk_output_type: console
+output: html_document
+---
+
+```{r prep, include=FALSE}
+# Set default chunk output
+knitr::opts_chunk$set(
+  echo = FALSE, message = FALSE, warning = FALSE,
+  tidy = FALSE, results = "asis"
+)
+
+library(tidyverse)
+```
+
+This is so wild. Let this sink in.
+
+This was motivated by my recent trip to South Carolina and seeing my first confederate statue. I am not sure why we glorify these people who fought for people to be enslaved.
+
+Check these out btw:
+
+1. https://www.youtube.com/watch?v=dOkFXPblLpU&feature=emb_title
+2. https://www.youtube.com/watch?v=WClgR6Q0aPE
+3. https://www.theguardian.com/us-news/2017/aug/16/confederate-monuments-civil-war-history-trump
+
+(1) is about how the United Daughters of the Confederacy brainwashed the youth by pretending slavery wasn't the cause of the Civil War
+(2) talks about the reason why each peek of confederate statues were created
+(3) also talks about each peek and why these statues were created
+
+```{r}
+all_dates = read.csv("data/confederate_statue_dates.csv") %>% as_tibble()
+```
+
+```{r graph1, fig.width=20, fig.height=15}
+all_dates %>%
+  ggplot(aes(x = value3)) +
+  geom_histogram(binwidth = 5, fill = "red") +
+  scale_x_continuous(breaks = seq(min(all_dates$value3), max(all_dates$value3), by = 5)) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(size=25, angle = 90),
+        axis.text.y = element_text(size=30),
+        title = element_text(size=30)) +
+  ylab("# of Statues") +
+  ggtitle("Number of Confederate Statues Over Time")
+```
+
+It's just something to think about...
+
+Also web scraping is fun
+
+

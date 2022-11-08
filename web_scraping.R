@@ -1,26 +1,7 @@
 
 library(rvest)
-
-url = "https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials"
-
-wiki_confederate_statues = url %>% read_html()
-
-wiki_text <- wiki_confederate_statues %>% html_nodes("#bodyContent") %>% 
-  html_text()
-
-wiki_text %>%
-  # stringr::str_split("\n") %>%
-  str_extract_all("\\([^()]+\\d\\d\\d\\d\\)")
-
-wiki_text %>%
-  # stringr::str_split("\n") %>%
-  str_extract_all("\\(\\d\\d\\d\\d[^()]+\\)")
-
-# this works
-wiki_text %>%
-  # stringr::str_split("\n") %>%
-  str_extract_all("\\(\\d{4}\\)")
-
+library(tidyverse)
+ 
 # (?<=\\().*(?=\\))
 # Break the pattern in three parts:
 # 
@@ -43,35 +24,21 @@ grab_dates <- function(url) {
   url %>%
     read_html() %>%
     html_text() %>%
+    # look for parentheses
+    # after looking at this after a week, I feel like this wasn't necessary
+    # I can assume every open parenthesis will be paired with a closing parenthesis
     str_extract_all("(?<=\n).*(?=\\n)") %>%
     unlist %>% as_tibble() %>%
-    mutate(has_date = grepl(value, pattern = "\\(\\d{4}\\)")) %>% 
+    # now look for 4 digits between two parentheses
+    mutate(has_date = grepl(value, pattern = "\\(\\d{4}\\)")) %>%
     filter(has_date) %>%
     rowwise() %>%
     mutate(value2 = str_extract_all(value, "\\(\\d{4}\\)") %>% unlist %>% paste(collapse = ", ")) %>%
     separate_rows(value2, sep = ", ") %>%
-    mutate(value3 = as.numeric(stringr::str_remove_all(string = value2, pattern = "\\(|\\)")))
+    mutate(value3 = as.numeric(stringr::str_remove_all(string = value2, pattern = "\\(|\\)"))) %>%
+    filter(!grepl(x = value, pattern = "\\^"))
 }
 
-wiki_text_separated <- wiki_text %>%
-  # stringr::str_split("\n") %>%
-  str_extract_all("(?<=\n).*(?=\\n)") %>%
-  unlist %>% as_tibble()
-
-wiki_clean <- wiki_text_separated %>%
-  mutate(has_date = grepl(value, pattern = "\\(\\d{4}\\)")) %>% 
-  filter(has_date) %>%
-  # get rid of this citation
-  filter(value != "^ Ark. Code Ann. (1987), Section 1–4–101; cited in B.F. Shearer and B.S. Shearer (2002), State Names, Seals, Flags, and Symbols, Greenwood Press, p. 54") %>%
-  rowwise() %>%
-  mutate(value2 = str_extract_all(value, "\\(\\d{4}\\)") %>% unlist %>% paste(collapse = ", ")) %>%
-  separate_rows(value2, sep = ", ") %>%
-  mutate(value3 = as.numeric(stringr::str_remove_all(string = value2, pattern = "\\(|\\)")))
-
-wiki_clean %>%
-  ggplot(aes(x = value3)) +
-  geom_histogram(binwidth = 5) +
-  scale_x_continuous(breaks = seq(min(wiki_clean$value3), max(wiki_clean$value3), by = 5))
 
 
 # omg these fucking states have their own wikis for how many statues they have:
@@ -100,18 +67,12 @@ dates_north_carolina = url_north_carolina %>% grab_dates()
 url_south_carolina = "https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_South_Carolina"
 dates_south_carolina = url_south_carolina %>% grab_dates()
 
-all_dates <- wiki_clean %>%
+url_all_other = "https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials"
+dates_all_other <- url_all_other %>% grab_dates()
+
+all_dates <- dates_all_other %>%
   bind_rows(dates_bama, dates_georgia, dates_mississippi, dates_north_carolina, dates_south_carolina)
 
+all_dates %>% write.csv("data/confederate_statue_dates.csv", row.names = FALSE)
 
-all_dates %>% 
-  ggplot(aes(x = value3)) +
-  geom_histogram(binwidth = 5, fill = "red") +
-  scale_x_continuous(breaks = seq(min(wiki_clean$value3), max(wiki_clean$value3), by = 5)) +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(size=15, angle = 90),
-        axis.text.y = element_text(size=20),
-        title = element_text(size=20)) +
-  ylab("# of Statues") +
-  ggtitle("Number of Confederate Statues Over Time") #+
-  # theme_bw()
+
