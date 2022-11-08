@@ -1,5 +1,7 @@
 ---
 output: github_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -35,7 +37,7 @@ This was motivated by my recent trip to South Carolina and seeing my first confe
 
 Check these out btw:
 
-1. https://www.youtube.com/watch?v=dOkFXPblLpU&feature=emb_title
+1. https://www.youtube.com/watch?v=dOkFXPblLpU
 2. https://www.youtube.com/watch?v=WClgR6Q0aPE
 3. https://www.theguardian.com/us-news/2017/aug/16/confederate-monuments-civil-war-history-trump
 
@@ -47,7 +49,24 @@ Check these out btw:
 
 ```{r}
 all_dates = read.csv("data/confederate_statue_dates.csv") %>% as_tibble()
+
+# find mode
+max_statues = all_dates %>% group_by(value3) %>%
+  count %>%
+  ungroup() %>%
+  arrange(desc(n)) %>%
+  filter(n == max(n))
+
+mode = max_statues %>% 
+  pull(value3)
+
+with_max = max_statues %>% 
+  pull(n)
 ```
+
+Also, we witness the most statues being built in a single year in `r mode` with `r with_max` statues.
+
+These bins are of width = 5 years.
 
 ```{r graph1, fig.width=20, fig.height=15}
 all_dates %>%
