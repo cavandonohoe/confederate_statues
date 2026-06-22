@@ -35,7 +35,10 @@ jobs:
             any::here
             any::rlang
 
-      - name: Run refresh script
+      - name: Re-download raw HTML from Wikipedia
+        run: Rscript scripts/refetch_raw.R
+
+      - name: Regenerate dataset from raw HTML
         run: Rscript scripts/refresh_data.R
 
       - name: Open PR if data changed
@@ -44,13 +47,19 @@ jobs:
           commit-message: "Refresh confederate_statue_dates.csv"
           title: "Refresh monthly dataset"
           body: |
-            Automated monthly refresh of `data/confederate_statue_dates.csv`
-            by re-running `scripts/refresh_data.R` against the Wikipedia
-            source pages.
+            Automated monthly refresh of the dataset.
 
-            If the diff looks unexpected, check whether any of the source
-            pages changed their structure.
+            1. `scripts/refetch_raw.R` re-downloaded the Wikipedia
+               source pages to `data-raw/`.
+            2. `scripts/refresh_data.R` re-ran the scrape -> clean
+               pipeline against `data-raw/` and rewrote
+               `data/confederate_statue_dates.csv`.
+
+            If the diff looks unexpected, check whether any source
+            page changed its structure (the parser keys off `(YYYY)`
+            tokens in the page text).
           branch: bot/refresh-data
           delete-branch: true
           add-paths: |
+            data-raw/*.html
             data/confederate_statue_dates.csv
