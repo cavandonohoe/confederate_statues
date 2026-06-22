@@ -48,21 +48,38 @@ Also web scraping is fun.
 
 ## How the pipeline works
 
-Pure functions live in `R/scrape.R` and are unit-tested against fixture
-HTML in `tests/testthat/` (no network calls during tests).
+The pipeline is split into four layers so each piece is independently
+testable, and so a fresh checkout can regenerate the dataset offline
+without hitting Wikipedia. Pure functions live in `R/` and are
+unit-tested against fixture HTML in `tests/testthat/` (no network calls
+during tests).
+
+    data-raw/*.html  ->  scrape_all()  ->  tidy_statues()  ->  data/confederate_statue_dates.csv
+       (snapshots)    (R/scrape.R)       (R/clean.R)        (canonical dataset)
 
 | Layer | File | What it does |
 |----|----|----|
-| Data layer | `R/scrape.R` | `parse_dates_from_text()` (pure), `grab_dates(url, cache_dir)` (network + parse), `scrape_all(urls)` (orchestrates all sources). Source URLs are the `STATE_URLS` constant. |
-| Refresh | `scripts/refresh_data.R` | Re-runs `scrape_all()` and writes `data/confederate_statue_dates.csv`. Run with `--cache` to also save raw HTML under `data/raw_html/`. |
-| Tests | `tests/testthat/test-scrape.R` | 9 cases covering year extraction, multi-year entries, citation-noise filtering, cache-dir behavior, and the URL constants. |
-| Automation | `.github/workflows/test.yml` | Runs tests on push and PR. |
-| Automation | `.github/workflows/refresh-data.yml` | Monthly cron + manual trigger that re-runs the refresh script and opens a PR if the CSV changed. |
+| Sources (raw) | `data-raw/*.html` | Checked-in HTML snapshots of each Wikipedia source page. Makes the pipeline reproducible offline. |
+| Scrape | `R/scrape.R` | `parse_dates_from_text()` (pure), `grab_dates(url)` (parse single page, works on local files or URLs), `scrape_all(urls)` (orchestrates all sources). |
+| Clean | `R/clean.R` | `tidy_statues(raw)` locks in the canonical schema: drops year outliers and duplicates, coerces types, sorts deterministically. |
+| Output | `data/confederate_statue_dates.csv` | Cleaned dataset, regenerated from `data-raw/`. |
+| Tests | `tests/testthat/test-scrape.R` | Parser cases: year extraction, multi-year entries, citation-noise filtering, cache-dir, URL constants. |
+| Tests | `tests/testthat/test-clean.R` | Schema lock-in: column names, types, year-window filter, deduplication, whitespace trimming, sort order. |
+| Refresh script | `scripts/refresh_data.R` | Parses `data-raw/*.html` -\> cleans -\> writes the CSV. Offline. |
+| Refetch script | `scripts/refetch_raw.R` | Re-downloads HTML from Wikipedia into `data-raw/`. Network. |
+| CI | `.github/workflows/test.yml` | Runs both test files on push and PR. |
+| CI | `.github/workflows/refresh-data.yml` | Monthly cron: runs refetch -\> refresh, opens a PR if anything changed. |
 
-To refresh locally:
+To regenerate the dataset locally (offline, from the checked-in HTML):
 
 ``` bash
 Rscript scripts/refresh_data.R
+```
+
+To also re-download fresh HTML from Wikipedia first:
+
+``` bash
+Rscript scripts/refetch_raw.R && Rscript scripts/refresh_data.R
 ```
 
 To run the tests:
@@ -70,6 +87,34 @@ To run the tests:
 ``` r
 testthat::test_dir("tests/testthat")
 ```
+
+## Limitations
+
+A few things to keep in mind when reading the chart:
+
+- **Wikipedia is the only source.** Coverage is uneven across states.
+  Some states (Alabama, Georgia, Mississippi, the Carolinas) have
+  dedicated list pages; everything else is rolled up into a single
+  catch-all page that’s far less complete.
+- **Years come from a `(YYYY)` regex.** The parser extracts every
+  4-digit token in parentheses from each entry line. Entries that store
+  the year differently (a date range, a prose description, a
+  footnote-only year) are silently missed. Entries that reference
+  multiple years (installed in YYYY, replaced in YYYY) produce multiple
+  rows.
+- **Borderline pre-war entries are kept.** A handful of antebellum
+  counties were later co-opted by Confederate naming (e.g. “Levy County
+  (1845)”). `tidy_statues()` keeps anything from 1840 onward; this is a
+  deliberate choice over a stricter Civil-War-onward cutoff, but it does
+  mean a few rows aren’t strictly “monuments built during or after the
+  Confederacy”.
+- **No deduplication across source pages.** If the same monument appears
+  on both a state-specific page and the catch-all “other” page, it’ll
+  show up twice. `tidy_statues()` only dedups within a given source.
+- **The dataset reflects whatever Wikipedia looked like on the last
+  refresh.** The monthly scheduled job in
+  `.github/workflows/refresh-data.yml` keeps `data-raw/` and the CSV in
+  sync, and the diff lands as a PR for review.
 
 ## Sources
 
