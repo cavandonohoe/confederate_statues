@@ -4,3 +4,7 @@
 .Ruserdata
 *.Rproj
 .DS_Store
+README.html
+
+# raw HTML cache (regenerable; opt-in via `Rscript scripts/refresh_data.R --cache`)
+data/raw_html/

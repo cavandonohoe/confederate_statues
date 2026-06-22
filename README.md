@@ -4,10 +4,16 @@
 # When were Confederate Statues made?
 
 <!-- badges: start -->
+
+[![R
+tests](https://github.com/cavandonohoe/confederate_statues/actions/workflows/test.yml/badge.svg)](https://github.com/cavandonohoe/confederate_statues/actions/workflows/test.yml)
+[![Refresh
+dataset](https://github.com/cavandonohoe/confederate_statues/actions/workflows/refresh-data.yml/badge.svg)](https://github.com/cavandonohoe/confederate_statues/actions/workflows/refresh-data.yml)
 <!-- badges: end -->
 
-R Project for web scraping Wikipedia looking for dates when confederate
-statues were erected
+A small R pipeline that scrapes Wikipedia’s lists of Confederate
+monuments and memorials, extracts the year each one was installed, and
+plots the timeline.
 
 This is so wild. Let this sink in.
 
@@ -38,12 +44,41 @@ These bins are of width = 5 years.
 
 It’s just something to think about…
 
-Also web scraping is fun
+Also web scraping is fun.
 
-sources:  
-<https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Alabama>
-<https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Georgia>
-<https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Mississippi>
-<https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_North_Carolina>
-<https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_South_Carolina>
-<https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials>
+## How the pipeline works
+
+Pure functions live in `R/scrape.R` and are unit-tested against fixture
+HTML in `tests/testthat/` (no network calls during tests).
+
+| Layer | File | What it does |
+|----|----|----|
+| Data layer | `R/scrape.R` | `parse_dates_from_text()` (pure), `grab_dates(url, cache_dir)` (network + parse), `scrape_all(urls)` (orchestrates all sources). Source URLs are the `STATE_URLS` constant. |
+| Refresh | `scripts/refresh_data.R` | Re-runs `scrape_all()` and writes `data/confederate_statue_dates.csv`. Run with `--cache` to also save raw HTML under `data/raw_html/`. |
+| Tests | `tests/testthat/test-scrape.R` | 9 cases covering year extraction, multi-year entries, citation-noise filtering, cache-dir behavior, and the URL constants. |
+| Automation | `.github/workflows/test.yml` | Runs tests on push and PR. |
+| Automation | `.github/workflows/refresh-data.yml` | Monthly cron + manual trigger that re-runs the refresh script and opens a PR if the CSV changed. |
+
+To refresh locally:
+
+``` bash
+Rscript scripts/refresh_data.R
+```
+
+To run the tests:
+
+``` r
+testthat::test_dir("tests/testthat")
+```
+
+## Sources
+
+- [Alabama](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Alabama)
+- [Georgia](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Georgia)
+- [Mississippi](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Mississippi)
+- [North
+  Carolina](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_North_Carolina)
+- [South
+  Carolina](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_South_Carolina)
+- [Other
+  states](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials)

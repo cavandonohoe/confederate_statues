@@ -35,9 +35,9 @@ all_dates = read.csv("data/confederate_statue_dates.csv") %>% as_tibble()
 
 ```{r graph1, fig.width=20, fig.height=15}
 all_dates %>%
-  ggplot(aes(x = value3)) +
+  ggplot(aes(x = year)) +
   geom_histogram(binwidth = 5, fill = "red") +
-  scale_x_continuous(breaks = seq(min(all_dates$value3), max(all_dates$value3), by = 5)) +
+  scale_x_continuous(breaks = seq(min(all_dates$year), max(all_dates$year), by = 5)) +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_text(size=25, angle = 90),
         axis.text.y = element_text(size=30),
