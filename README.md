@@ -123,19 +123,61 @@ service that lives in `service/`. It demonstrates the full
 data-engineering loop end to end: scrape (R) -\> clean (R) -\> CSV -\>
 ingest (Python) -\> Postgres -\> HTTP API.
 
-| Endpoint | What it returns |
-|----|----|
-| `GET /statues` | Paginated, filterable list (state, year, text) |
-| `GET /statues/{id}` | A single entry by content-hash id |
-| `GET /stats/by-decade` | Counts bucketed by decade |
-| `GET /stats/by-state` | Counts grouped by source state |
-| `GET /metrics` | Prometheus text exposition |
-| `GET /docs` | Swagger UI |
+| Endpoint               | What it returns                                |
+|------------------------|------------------------------------------------|
+| `GET /statues`         | Paginated, filterable list (state, year, text) |
+| `GET /statues/{id}`    | A single entry by content-hash id              |
+| `GET /stats/by-decade` | Counts bucketed by decade                      |
+| `GET /stats/by-state`  | Counts grouped by source state                 |
+| `GET /health`          | Liveness + DB connectivity probe               |
+| `GET /metrics`         | Prometheus text exposition                     |
+| `GET /docs`            | Swagger UI (interactive)                       |
+| `GET /openapi.json`    | OpenAPI 3.1 schema for codegen                 |
+
+Run it locally with Docker:
+
+``` bash
+cd service
+docker compose up --build
+docker compose exec api statue-api ingest --csv /data/confederate_statue_dates.csv
+open http://localhost:8000/docs
+```
+
+Then query it from anywhere. A few examples:
+
+``` bash
+# Counts per decade -- one line per histogram bar
+curl -s http://localhost:8000/stats/by-decade
+
+# Filtered list: Georgia entries from the 1900-1910 spike
+curl -s 'http://localhost:8000/statues?source=georgia&year_min=1900&year_max=1910&limit=10'
+
+# Free-text search
+curl -s 'http://localhost:8000/statues?q=Robert+E.+Lee&limit=5'
+```
+
+``` python
+import httpx, pandas as pd
+df = pd.DataFrame(
+    httpx.get("http://localhost:8000/statues", params={"limit": 500}).json()["items"]
+)
+df.groupby("source").size().sort_values(ascending=False)
+```
+
+``` r
+library(httr2)
+decades <- request("http://localhost:8000") |>
+  req_url_path("/stats/by-decade") |>
+  req_perform() |>
+  resp_body_json(simplifyVector = TRUE)
+ggplot2::qplot(decades$items$decade_start, decades$items$count, geom = "col")
+```
 
 Stack: FastAPI, Pydantic, SQLAlchemy 2.0, Alembic, Postgres, structlog,
 Prometheus, pytest, ruff, mypy, Docker, Fly.io. See
-[`service/README.md`](service/README.md) for a quickstart, the full
-architecture diagram, and deploy instructions.
+[`service/README.md`](service/README.md) for the full endpoint reference
+(every query param, response shape, error case), more client examples,
+the architecture diagram, configuration, and deploy instructions.
 
 ## Sources
 
