@@ -90,7 +90,7 @@ jobs:
 
       - name: Run unit tests (SQLite in-memory)
         env:
-          STATUE_API_DATABASE_URL: sqlite:///:memory:
+          STATUE_API_DATABASE_URL: "sqlite:///:memory:"
         run: pytest --cov-fail-under=70
 
       - name: Apply migrations against Postgres
