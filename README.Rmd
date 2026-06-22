@@ -159,6 +159,27 @@ A few things to keep in mind when reading the chart:
   `.github/workflows/refresh-data.yml` keeps `data-raw/` and the CSV
   in sync, and the diff lands as a PR for review.
 
+## REST API service
+
+The cleaned dataset is also exposed by a small Python (FastAPI) REST
+service that lives in `service/`. It demonstrates the full
+data-engineering loop end to end: scrape (R) -> clean (R) -> CSV ->
+ingest (Python) -> Postgres -> HTTP API.
+
+| Endpoint              | What it returns                                |
+|-----------------------|------------------------------------------------|
+| `GET /statues`        | Paginated, filterable list (state, year, text) |
+| `GET /statues/{id}`   | A single entry by content-hash id              |
+| `GET /stats/by-decade`| Counts bucketed by decade                      |
+| `GET /stats/by-state` | Counts grouped by source state                 |
+| `GET /metrics`        | Prometheus text exposition                     |
+| `GET /docs`           | Swagger UI                                     |
+
+Stack: FastAPI, Pydantic, SQLAlchemy 2.0, Alembic, Postgres, structlog,
+Prometheus, pytest, ruff, mypy, Docker, Fly.io. See
+[`service/README.md`](service/README.md) for a quickstart, the full
+architecture diagram, and deploy instructions.
+
 ## Sources
 
 - [Alabama](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Alabama)
