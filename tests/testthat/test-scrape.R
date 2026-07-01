@@ -33,6 +33,23 @@ test_that("parse_dates_from_text filters lines containing ^ (citation noise)", {
   expect_equal(result$year, 1900)
 })
 
+test_that("parse_dates_from_text strips the .mw-parser-output CSS block", {
+  # A pure citation-CSS line whose only (YYYY) is inside the CSS drops out...
+  css_only <- paste0(
+    "1 2 3 .mw-parser-output cite.citation{font-style:inherit} ",
+    "some cited work (2016)"
+  )
+  # ...but a real entry that merely has the CSS appended keeps its year.
+  real_plus_css <- paste0(
+    "Eternal Flame Monument (1939), plaque reads: ",
+    ".mw-parser-output .templatequote{overflow:hidden} lit in 2016"
+  )
+  text <- paste0("\n", css_only, "\n", real_plus_css, "\n")
+  result <- parse_dates_from_text(text)
+  expect_equal(nrow(result), 1)
+  expect_equal(result$year, 1939)
+})
+
 test_that("parse_dates_from_text ignores lines without a (YYYY) token", {
   text <- "\nNo year here\nYear in plain prose 1850 without parens\nWith parens (1900)\n"
   result <- parse_dates_from_text(text)
@@ -66,6 +83,14 @@ test_that("grab_dates writes raw HTML to cache_dir when provided", {
   unlink(cache_dir, recursive = TRUE)
 })
 
+test_that("grab_dates parses the Virginia fixture in the state-page style", {
+  fixture_path <- normalizePath("fixtures/virginia_sample.html")
+  result <- grab_dates(fixture_path)
+
+  expect_equal(nrow(result), 6)
+  expect_setequal(result$year, c(1910, 1902, 1893, 1905, 1903, 1937))
+})
+
 # ----------------------------------------------------------------------------
 # STATE_URLS constant
 # ----------------------------------------------------------------------------
@@ -73,7 +98,10 @@ test_that("grab_dates writes raw HTML to cache_dir when provided", {
 test_that("STATE_URLS has the expected named entries", {
   expect_setequal(
     names(STATE_URLS),
-    c("alabama", "georgia", "mississippi", "north_carolina", "south_carolina", "other")
+    c(
+      "alabama", "georgia", "mississippi", "north_carolina",
+      "south_carolina", "virginia", "other"
+    )
   )
   expect_true(all(grepl("^https://en\\.wikipedia\\.org/wiki/", STATE_URLS)))
 })

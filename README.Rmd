@@ -135,8 +135,8 @@ testthat::test_dir("tests/testthat")
 A few things to keep in mind when reading the chart:
 
 - **Wikipedia is the only source.** Coverage is uneven across states.
-  Some states (Alabama, Georgia, Mississippi, the Carolinas) have
-  dedicated list pages; everything else is rolled up into a single
+  Some states (Alabama, Georgia, Mississippi, Virginia, the Carolinas)
+  have dedicated list pages; everything else is rolled up into a single
   catch-all page that's far less complete.
 - **Years come from a `(YYYY)` regex.** The parser extracts every
   4-digit token in parentheses from each entry line. Entries that
@@ -230,5 +230,6 @@ instructions.
 - [Mississippi](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Mississippi)
 - [North Carolina](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_North_Carolina)
 - [South Carolina](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_South_Carolina)
+- [Virginia](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Virginia)
 - [Other states](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials)
 
