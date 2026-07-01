@@ -36,7 +36,7 @@ created
 ((3)) also talks about each peek and why these statues were created
 
 Also, we witness the most statues being built in a single year in 1910
-with 43 statues.
+with 47 statues.
 
 These bins are of width = 5 years.
 
@@ -93,8 +93,8 @@ testthat::test_dir("tests/testthat")
 A few things to keep in mind when reading the chart:
 
 - **Wikipedia is the only source.** Coverage is uneven across states.
-  Some states (Alabama, Georgia, Mississippi, the Carolinas) have
-  dedicated list pages; everything else is rolled up into a single
+  Some states (Alabama, Georgia, Mississippi, Virginia, the Carolinas)
+  have dedicated list pages; everything else is rolled up into a single
   catch-all page that’s far less complete.
 - **Years come from a `(YYYY)` regex.** The parser extracts every
   4-digit token in parentheses from each entry line. Entries that store
@@ -188,5 +188,6 @@ the architecture diagram, configuration, and deploy instructions.
   Carolina](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_North_Carolina)
 - [South
   Carolina](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_South_Carolina)
+- [Virginia](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Virginia)
 - [Other
   states](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials)
