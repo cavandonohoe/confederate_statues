@@ -33,6 +33,29 @@ test_that("parse_dates_from_text filters lines containing ^ (citation noise)", {
   expect_equal(result$year, 1900)
 })
 
+test_that("parse_dates_from_text drops up-arrow citation back-links", {
+  text <- paste0(
+    "\nReal monument (1900)\n",
+    "\u2191 Domby, Adam (2017). \"Captives of Memory\". Civil War History.\n",
+    "\u2191 \"Photograph of a statue (1930)\". Umbra Search. Retrieved 2017.\n"
+  )
+  result <- parse_dates_from_text(text)
+  expect_equal(nrow(result), 1)
+  expect_equal(result$year, 1900)
+})
+
+test_that("parse_dates_from_text drops numbered back-reference citations", {
+  text <- paste0(
+    "\nReal monument (1899)\n",
+    "1 2 3 4 Wiggins, David N. (2005). Remembering Georgia's Confederates.\n",
+    "1929 Confederate Reunion Marker (1929). Erected by citizens.\n"
+  )
+  result <- parse_dates_from_text(text)
+  # The citation is dropped; the real 1929 marker (single leading year) is kept.
+  expect_equal(nrow(result), 2)
+  expect_setequal(result$year, c(1899, 1929))
+})
+
 test_that("parse_dates_from_text strips the .mw-parser-output CSS block", {
   # A pure citation-CSS line whose only (YYYY) is inside the CSS drops out...
   css_only <- paste0(

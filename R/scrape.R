@@ -28,11 +28,15 @@ STATE_URLS <- c(
 #' returns one row per `(YYYY)` token found (entries can have more than one
 #' year if they reference multiple installations).
 #'
-#' Rows containing a `^` character are filtered out: those come from citation
-#' anchors at the bottom of the page rather than real entries. Wikipedia also
-#' inlines a block of citation/template CSS (starting at `.mw-parser-output`)
-#' into the page text; that block is stripped from each line before parsing so
-#' a `(YYYY)` inside a cited work's title cannot leak through as a spurious
+#' Rows that are citation/reference noise are filtered out rather than treated
+#' as entries. Wikipedia renders footnote back-links as an up-arrow (`\u2191`)
+#' and groups multi-use references under a run of back-reference numbers
+#' (e.g. `1 2 3 Author (2005). Title.`); in both cases the `(YYYY)` is a
+#' publication year, not an installation date. Lines containing an ASCII `^`
+#' (older anchor style) are dropped for the same reason. Wikipedia also inlines
+#' a block of citation/template CSS (starting at `.mw-parser-output`) into the
+#' page text; that block is stripped from each line before parsing so a
+#' `(YYYY)` inside a cited work's title cannot leak through as a spurious
 #' entry, while a real entry that merely has the CSS appended keeps its year.
 #'
 #' @param page_text Character scalar. The full text content of the page,
@@ -48,7 +52,9 @@ parse_dates_from_text <- function(page_text) {
   candidates <- tibble::tibble(entry = lines) |>
     dplyr::mutate(entry = trimws(.data$entry)) |>
     dplyr::filter(grepl("\\(\\d{4}\\)", .data$entry)) |>
-    dplyr::filter(!grepl("\\^", .data$entry))
+    dplyr::filter(!grepl("\\^", .data$entry)) |>
+    dplyr::filter(!grepl("\u2191", .data$entry)) |>
+    dplyr::filter(!grepl("^\\d+( \\d+)+ [A-Z\"]", .data$entry))
 
   if (nrow(candidates) == 0) {
     return(tibble::tibble(
