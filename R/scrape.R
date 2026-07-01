@@ -29,7 +29,11 @@ STATE_URLS <- c(
 #' year if they reference multiple installations).
 #'
 #' Rows containing a `^` character are filtered out: those come from citation
-#' anchors at the bottom of the page rather than real entries.
+#' anchors at the bottom of the page rather than real entries. Wikipedia also
+#' inlines a block of citation/template CSS (starting at `.mw-parser-output`)
+#' into the page text; that block is stripped from each line before parsing so
+#' a `(YYYY)` inside a cited work's title cannot leak through as a spurious
+#' entry, while a real entry that merely has the CSS appended keeps its year.
 #'
 #' @param page_text Character scalar. The full text content of the page,
 #'   typically the result of `rvest::html_text(rvest::read_html(url))`.
@@ -39,8 +43,10 @@ STATE_URLS <- c(
 #'   - `year`: the year as numeric
 parse_dates_from_text <- function(page_text) {
   lines <- unlist(stringr::str_extract_all(page_text, "(?<=\\n).*(?=\\n)"))
+  lines <- stringr::str_remove(lines, "\\.mw-parser-output.*$")
 
   candidates <- tibble::tibble(entry = lines) |>
+    dplyr::mutate(entry = trimws(.data$entry)) |>
     dplyr::filter(grepl("\\(\\d{4}\\)", .data$entry)) |>
     dplyr::filter(!grepl("\\^", .data$entry))
 
