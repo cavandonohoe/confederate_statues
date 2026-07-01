@@ -33,6 +33,23 @@ test_that("parse_dates_from_text filters lines containing ^ (citation noise)", {
   expect_equal(result$year, 1900)
 })
 
+test_that("parse_dates_from_text strips the .mw-parser-output CSS block", {
+  # A pure citation-CSS line whose only (YYYY) is inside the CSS drops out...
+  css_only <- paste0(
+    "1 2 3 .mw-parser-output cite.citation{font-style:inherit} ",
+    "some cited work (2016)"
+  )
+  # ...but a real entry that merely has the CSS appended keeps its year.
+  real_plus_css <- paste0(
+    "Eternal Flame Monument (1939), plaque reads: ",
+    ".mw-parser-output .templatequote{overflow:hidden} lit in 2016"
+  )
+  text <- paste0("\n", css_only, "\n", real_plus_css, "\n")
+  result <- parse_dates_from_text(text)
+  expect_equal(nrow(result), 1)
+  expect_equal(result$year, 1939)
+})
+
 test_that("parse_dates_from_text ignores lines without a (YYYY) token", {
   text <- "\nNo year here\nYear in plain prose 1850 without parens\nWith parens (1900)\n"
   result <- parse_dates_from_text(text)
