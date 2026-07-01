@@ -8,7 +8,7 @@
 #' Source URLs to scrape for monument dates.
 #'
 #' Wikipedia maintains a single "List of Confederate monuments and memorials"
-#' page covering most states, and dedicated per-state pages for the five
+#' page covering most states, and dedicated per-state pages for the six
 #' states with enough entries to spin off their own list.
 STATE_URLS <- c(
   alabama = "https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Alabama",
@@ -16,6 +16,7 @@ STATE_URLS <- c(
   mississippi = "https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Mississippi",
   north_carolina = "https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_North_Carolina",
   south_carolina = "https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_South_Carolina",
+  virginia = "https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials_in_Virginia",
   other = "https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials"
 )
 

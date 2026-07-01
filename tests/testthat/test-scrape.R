@@ -66,6 +66,14 @@ test_that("grab_dates writes raw HTML to cache_dir when provided", {
   unlink(cache_dir, recursive = TRUE)
 })
 
+test_that("grab_dates parses the Virginia fixture in the state-page style", {
+  fixture_path <- normalizePath("fixtures/virginia_sample.html")
+  result <- grab_dates(fixture_path)
+
+  expect_equal(nrow(result), 6)
+  expect_setequal(result$year, c(1910, 1902, 1893, 1905, 1903, 1937))
+})
+
 # ----------------------------------------------------------------------------
 # STATE_URLS constant
 # ----------------------------------------------------------------------------
@@ -73,7 +81,10 @@ test_that("grab_dates writes raw HTML to cache_dir when provided", {
 test_that("STATE_URLS has the expected named entries", {
   expect_setequal(
     names(STATE_URLS),
-    c("alabama", "georgia", "mississippi", "north_carolina", "south_carolina", "other")
+    c(
+      "alabama", "georgia", "mississippi", "north_carolina",
+      "south_carolina", "virginia", "other"
+    )
   )
   expect_true(all(grepl("^https://en\\.wikipedia\\.org/wiki/", STATE_URLS)))
 })
