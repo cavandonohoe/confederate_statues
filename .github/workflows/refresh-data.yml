@@ -34,12 +34,30 @@ jobs:
             any::tibble
             any::here
             any::rlang
+            any::testthat
 
       - name: Re-download raw HTML from Wikipedia
         run: Rscript scripts/refetch_raw.R
 
       - name: Regenerate dataset from raw HTML
         run: Rscript scripts/refresh_data.R
+
+      # Validate the freshly regenerated dataset before opening a PR.
+      # The refresh PR is authored by the GITHUB_TOKEN bot, so it does
+      # not trigger the R tests workflow; run the same checks here so a
+      # broken Wikipedia parse can't land as a green "no checks" PR.
+      - name: Run testthat suite
+        run: |
+          Rscript -e '
+            results <- testthat::test_dir("tests/testthat", reporter = "summary")
+            df <- as.data.frame(results)
+            if (any(df$failed > 0) || any(df$error)) {
+              quit(status = 1)
+            }
+          '
+
+      - name: Validate regenerated dataset
+        run: Rscript scripts/validate_data.R
 
       - name: Open PR if data changed
         uses: peter-evans/create-pull-request@v6
