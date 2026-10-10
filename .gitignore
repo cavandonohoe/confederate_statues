@@ -5,3 +5,6 @@
 *.Rproj
 .DS_Store
 README.html
+
+# Standalone rendered report is a CI artifact, not a source file.
+/plots.html

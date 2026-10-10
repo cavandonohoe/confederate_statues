@@ -22,8 +22,8 @@ class Statue(Base):
       surrounding context exactly as scraped from Wikipedia.
     - ``year``: dedication / naming year, filtered upstream to 1840..present.
 
-    A SHA-256 hash of ``(source, entry, year)`` is stored as the primary key
-    so the ingest job can do idempotent upserts without surrogate-key churn.
+    A SHA-256 hash of ``(source, normalized entry, year)`` is stored as the primary key
+    so citation edits preserve identity. Ingest synchronizes the complete snapshot.
     """
 
     __tablename__ = "statues"

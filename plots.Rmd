@@ -1,5 +1,5 @@
 ---
-title: "Confederate Statues in the US"
+title: "Confederate monuments and named places in the US"
 editor_options: 
   chunk_output_type: console
 output: html_document
@@ -42,8 +42,8 @@ all_dates %>%
         axis.text.x = element_text(size=25, angle = 90),
         axis.text.y = element_text(size=30),
         title = element_text(size=30)) +
-  ylab("# of Statues") +
-  ggtitle("Number of Confederate Statues Over Time")
+  ylab("# of recorded year entries") +
+  ggtitle("Recorded years for Confederate monuments and named places")
 ```
 
 It's just something to think about...

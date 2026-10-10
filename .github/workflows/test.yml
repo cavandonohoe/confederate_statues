@@ -4,16 +4,24 @@ on:
   push:
     branches: [main]
     paths:
+      - "data/**"
+      - "data-raw/**"
       - "R/**"
       - "scripts/**"
       - "tests/**"
+      - "README.Rmd"
+      - "plots.Rmd"
       - ".github/workflows/test.yml"
   pull_request:
     branches: [main]
     paths:
+      - "data/**"
+      - "data-raw/**"
       - "R/**"
       - "scripts/**"
       - "tests/**"
+      - "README.Rmd"
+      - "plots.Rmd"
       - ".github/workflows/test.yml"
   workflow_dispatch:
 
@@ -44,6 +52,8 @@ jobs:
             any::stringr
             any::tidyr
             any::tibble
+            any::tidyverse
+            any::rmarkdown
 
       - name: Run testthat
         run: |
@@ -54,3 +64,22 @@ jobs:
               quit(status = 1)
             }
           '
+
+      - name: Validate checked-in dataset
+        run: Rscript scripts/validate_data.R
+
+      - name: Regenerate dataset and verify charts render
+        run: |
+          Rscript scripts/refresh_data.R
+          Rscript scripts/validate_data.R
+          Rscript -e 'rmarkdown::render("README.Rmd"); rmarkdown::render("plots.Rmd")'
+
+      - name: Upload regenerated data and charts
+        uses: actions/upload-artifact@v4
+        with:
+          name: regenerated-statues
+          path: |
+            data/confederate_statue_dates.csv
+            README.md
+            README_files/
+            plots.html

@@ -128,3 +128,21 @@ test_that("STATE_URLS has the expected named entries", {
   )
   expect_true(all(grepl("^https://en\\.wikipedia\\.org/wiki/", STATE_URLS)))
 })
+
+test_that("parser keeps first and last lines without surrounding newlines", {
+  result <- parse_dates_from_text("First (1900)\nLast (1910)")
+  expect_equal(result$year, c(1900, 1910))
+})
+
+test_that("grab_dates separates adjacent HTML blocks without source newlines", {
+  path <- tempfile(fileext = ".html")
+  on.exit(unlink(path))
+  writeLines(paste0(
+    "<html><body><ul><li>Jefferson Davis Park (2007)</li></ul>",
+    "<p>A different Seattle monument was toppled in 2020.</p>",
+    "<ul><li>Another memorial (1910)</li></ul></body></html>"
+  ), path)
+  result <- grab_dates(path)
+  expect_equal(result$year, c(2007, 1910))
+  expect_false(any(grepl("Seattle", result$entry)))
+})
