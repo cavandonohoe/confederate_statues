@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# When were Confederate Statues made?
+# Recorded years for Confederate monuments and named places
 
 <!-- badges: start -->
 
@@ -12,8 +12,10 @@ dataset](https://github.com/cavandonohoe/confederate_statues/actions/workflows/r
 <!-- badges: end -->
 
 A small R pipeline that scrapes Wikipedia’s lists of Confederate
-monuments and memorials, extracts the year each one was installed, and
-plots the timeline.
+monuments and memorials, extracts parenthesized years, and plots the
+timeline. Rows include monuments, memorials, schools, counties, and
+other named places. A row represents a recorded year within an entry,
+not necessarily a unique statue or an installation date.
 
 This is so wild. Let this sink in.
 
@@ -35,8 +37,8 @@ created
 
 ((3)) also talks about each peek and why these statues were created
 
-Also, we witness the most statues being built in a single year in 1910
-with 47 statues.
+Also, we witness the most recorded year entries in a single year in 1910
+with 47 entries.
 
 These bins are of width = 5 years.
 
@@ -57,18 +59,18 @@ during tests).
     data-raw/*.html  ->  scrape_all()  ->  tidy_statues()  ->  data/confederate_statue_dates.csv
        (snapshots)    (R/scrape.R)       (R/clean.R)        (canonical dataset)
 
-| Layer | File | What it does |
-|----|----|----|
-| Sources (raw) | `data-raw/*.html` | Checked-in HTML snapshots of each Wikipedia source page. Makes the pipeline reproducible offline. |
-| Scrape | `R/scrape.R` | `parse_dates_from_text()` (pure), `grab_dates(url)` (parse single page, works on local files or URLs), `scrape_all(urls)` (orchestrates all sources). |
-| Clean | `R/clean.R` | `tidy_statues(raw)` locks in the canonical schema: drops year outliers and duplicates, coerces types, sorts deterministically. |
-| Output | `data/confederate_statue_dates.csv` | Cleaned dataset, regenerated from `data-raw/`. |
-| Tests | `tests/testthat/test-scrape.R` | Parser cases: year extraction, multi-year entries, citation-noise filtering, cache-dir, URL constants. |
-| Tests | `tests/testthat/test-clean.R` | Schema lock-in: column names, types, year-window filter, deduplication, whitespace trimming, sort order. |
-| Refresh script | `scripts/refresh_data.R` | Parses `data-raw/*.html` -\> cleans -\> writes the CSV. Offline. |
-| Refetch script | `scripts/refetch_raw.R` | Re-downloads HTML from Wikipedia into `data-raw/`. Network. |
-| CI | `.github/workflows/test.yml` | Runs both test files on push and PR. |
-| CI | `.github/workflows/refresh-data.yml` | Monthly cron: runs refetch -\> refresh, opens a PR if anything changed. |
+| Layer          | File                                 | What it does                                                                                                                                          |
+|----------------|--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Sources (raw)  | `data-raw/*.html`                    | Checked-in HTML snapshots of each Wikipedia source page. Makes the pipeline reproducible offline.                                                     |
+| Scrape         | `R/scrape.R`                         | `parse_dates_from_text()` (pure), `grab_dates(url)` (parse single page, works on local files or URLs), `scrape_all(urls)` (orchestrates all sources). |
+| Clean          | `R/clean.R`                          | `tidy_statues(raw)` locks in the canonical schema: drops year outliers and duplicates, coerces types, sorts deterministically.                        |
+| Output         | `data/confederate_statue_dates.csv`  | Cleaned dataset, regenerated from `data-raw/`.                                                                                                        |
+| Tests          | `tests/testthat/test-scrape.R`       | Parser cases: year extraction, multi-year entries, citation-noise filtering, cache-dir, URL constants.                                                |
+| Tests          | `tests/testthat/test-clean.R`        | Schema lock-in: column names, types, year-window filter, deduplication, whitespace trimming, sort order.                                              |
+| Refresh script | `scripts/refresh_data.R`             | Parses `data-raw/*.html` -\> cleans -\> writes the CSV. Offline.                                                                                      |
+| Refetch script | `scripts/refetch_raw.R`              | Re-downloads HTML from Wikipedia into `data-raw/`. Network.                                                                                           |
+| CI             | `.github/workflows/test.yml`         | Runs both test files on push and PR.                                                                                                                  |
+| CI             | `.github/workflows/refresh-data.yml` | Monthly cron: runs refetch -\> refresh, opens a PR if anything changed.                                                                               |
 
 To regenerate the dataset locally (offline, from the checked-in HTML):
 
