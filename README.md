@@ -194,24 +194,23 @@ the architecture diagram, configuration, and deploy instructions.
 - [Other
   states](https://en.wikipedia.org/wiki/List_of_Confederate_monuments_and_memorials)
 
-
-
-
 ## Generated file policy
 
-Keep `data-raw/*.html` as source snapshots and `tests/testthat/fixtures/*.html`
-as parser fixtures: they support reproducible offline builds and tests.
-Commit the cleaned CSV, generated `README.md`, and README plot image so
-GitHub can display the analysis without running R.
+Keep `data-raw/*.html` as source snapshots and
+`tests/testthat/fixtures/*.html` as parser fixtures: they support
+reproducible offline builds and tests. Commit the cleaned CSV, generated
+`README.md`, and README plot image so GitHub can display the analysis
+without running R.
 
-`plots.html` and the temporary `README.html` preview are ignored. CI renders
-and uploads the standalone report as an artifact instead of committing its
-embedded scripts and images. The monthly refresh uploads `statues-report`;
-R CI includes it in `regenerated-statues`.
+`plots.html` and the temporary `README.html` preview are ignored. CI
+renders and uploads the standalone report as an artifact instead of
+committing its embedded scripts and images. The monthly refresh uploads
+`statues-report`; R CI includes it in `regenerated-statues`.
 
-The portfolio website imports the CSV from this repository's `main` branch
-and renders its own `confederate_statues.Rmd`. It does not use `plots.html`.
-Changes to that page's labels or plotting logic must be made in the website
-repository; this repository's README chart uses centered five-year histogram
-bins, while the website currently uses five-year bins starting at the minimum
-year. Their bar boundaries therefore differ even with identical CSV data.
+The portfolio website imports the CSV from this repository’s `main`
+branch and renders its own `confederate_statues.Rmd`. It does not use
+`plots.html`. Changes to that page’s labels or plotting logic must be
+made in the website repository; this repository’s README chart uses
+centered five-year histogram bins, while the website currently uses
+five-year bins starting at the minimum year. Their bar boundaries
+therefore differ even with identical CSV data.
