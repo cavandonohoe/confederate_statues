@@ -13,14 +13,17 @@ knitr::opts_chunk$set(
 )
 ```
 
-# When were Confederate Statues made?
+# Recorded years for Confederate monuments and named places
 
 <!-- badges: start -->
 [![R tests](https://github.com/cavandonohoe/confederate_statues/actions/workflows/test.yml/badge.svg)](https://github.com/cavandonohoe/confederate_statues/actions/workflows/test.yml)
 [![Refresh dataset](https://github.com/cavandonohoe/confederate_statues/actions/workflows/refresh-data.yml/badge.svg)](https://github.com/cavandonohoe/confederate_statues/actions/workflows/refresh-data.yml)
 <!-- badges: end -->
 
-A small R pipeline that scrapes Wikipedia's lists of Confederate monuments and memorials, extracts the year each one was installed, and plots the timeline.
+A small R pipeline that scrapes Wikipedia's lists of Confederate monuments and memorials, extracts parenthesized years, and plots the timeline. Rows include monuments,
+memorials, schools, counties, and other named places. A row represents a
+recorded year within an entry, not necessarily a unique statue or an
+installation date.
 
 
 ```{r prep, include=FALSE}
@@ -65,7 +68,7 @@ with_max = max_statues %>%
   pull(n)
 ```
 
-Also, we witness the most statues being built in a single year in `r mode` with `r with_max` statues.
+Also, we witness the most recorded year entries in a single year in `r mode` with `r with_max` entries.
 
 These bins are of width = 5 years.
 
@@ -78,8 +81,8 @@ all_dates %>%
         axis.text.x = element_text(size=25, angle = 90),
         axis.text.y = element_text(size=30),
         title = element_text(size=30)) +
-  ylab("# of Statues") +
-  ggtitle("Number of Confederate Statues Over Time")
+  ylab("# of recorded year entries") +
+  ggtitle("Recorded years for Confederate monuments and named places")
 ```
 
 It's just something to think about...

@@ -40,13 +40,13 @@ STATE_URLS <- c(
 #' entry, while a real entry that merely has the CSS appended keeps its year.
 #'
 #' @param page_text Character scalar. The full text content of the page,
-#'   typically the result of `rvest::html_text(rvest::read_html(url))`.
+#'   typically the result of `rvest::html_text2(rvest::read_html(url))`.
 #' @return A tibble with columns:
 #'   - `entry`: the full source line for context
 #'   - `year_text`: the `(YYYY)` token
 #'   - `year`: the year as numeric
 parse_dates_from_text <- function(page_text) {
-  lines <- unlist(stringr::str_extract_all(page_text, "(?<=\\n).*(?=\\n)"))
+  lines <- strsplit(page_text, "\n", fixed = TRUE)[[1]]
   lines <- stringr::str_remove(lines, "\\.mw-parser-output.*$")
 
   candidates <- tibble::tibble(entry = lines) |>
@@ -90,7 +90,7 @@ parse_dates_from_text <- function(page_text) {
 #' @return Same tibble as `parse_dates_from_text()`.
 grab_dates <- function(url, cache_dir = NULL) {
   page <- rvest::read_html(url)
-  page_text <- rvest::html_text(page)
+  page_text <- rvest::html_text2(page)
 
   if (!is.null(cache_dir)) {
     dir.create(cache_dir, showWarnings = FALSE, recursive = TRUE)

@@ -1,20 +1,23 @@
 """CSV → Postgres ingest job.
 
 Reads the upstream ``data/confederate_statue_dates.csv`` produced by the R
-pipeline, derives a stable content-hash id, and does an idempotent upsert
-into the ``statues`` table. Safe to run on a schedule (no churn when the
-CSV hasn't changed; targeted updates when rows change).
+pipeline, derives a citation-insensitive content-hash id, and synchronizes the snapshot
+into the ``statues`` table. Rows absent from the new snapshot are removed in the same transaction.
+Empty or malformed snapshots are rejected before any database writes.
 """
 
 from __future__ import annotations
 
 import csv
 import hashlib
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from statue_api.db import SessionLocal
@@ -32,7 +35,9 @@ class StatueRow:
 
     @property
     def content_hash(self) -> str:
-        material = f"{self.source}\x1f{self.entry}\x1f{self.year}"
+        entry = re.sub(r"\[(?:\d+(?:[ ,\u2013-]\d+)*|[a-z])\]", "", self.entry)
+        entry = " ".join(entry.split())
+        material = f"{self.source}\x1f{entry}\x1f{self.year}"
         return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
@@ -46,56 +51,58 @@ def parse_csv(path: Path) -> Iterable[StatueRow]:
                 f"CSV header mismatch. Expected {sorted(expected)}, "
                 f"got {sorted(reader.fieldnames or [])}"
             )
-        for raw in reader:
+        for line_number, raw in enumerate(reader, start=2):
+            if None in raw or any(value is None for value in raw.values()):
+                raise ValueError(f"Malformed CSV row at line {line_number}")
             try:
                 year_int = int(raw["year"])
             except (TypeError, ValueError):
-                log.warning("skip_row_bad_year", year=raw.get("year"))
-                continue
+                raise ValueError(f"Invalid year at CSV line {line_number}") from None
             source = (raw["source"] or "").strip()
             entry = (raw["entry"] or "").strip()
             if not source or not entry:
-                log.warning("skip_row_empty_field", source=source, entry_len=len(entry))
-                continue
+                raise ValueError(f"Empty field at CSV line {line_number}")
             yield StatueRow(source=source, entry=entry, year=year_int)
 
 
 def upsert_rows(db: Session, rows: Iterable[StatueRow], batch_size: int = 500) -> int:
-    """Upsert rows in batches. Returns the number of rows processed."""
-    batch: list[dict[str, object]] = []
-    processed = 0
+    """Atomically synchronize a complete, non-empty snapshot.
 
-    def _flush() -> None:
-        nonlocal batch
-        if not batch:
-            return
-        stmt = pg_insert(Statue).values(batch)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=[Statue.id],
-            set_={
-                "source": stmt.excluded.source,
-                "entry": stmt.excluded.entry,
-                "year": stmt.excluded.year,
-            },
-        )
-        db.execute(stmt)
-        batch = []
-
-    for r in rows:
-        batch.append(
-            {
-                "id": r.content_hash,
-                "source": r.source,
-                "entry": r.entry,
-                "year": r.year,
-            }
-        )
-        processed += 1
-        if len(batch) >= batch_size:
-            _flush()
-    _flush()
-    db.commit()
-    return processed
+    Materialize before writing so parse errors cannot leave partial changes.
+    Citation-only edits retain their ID; changed/deleted entries replace the
+    previous snapshot rather than accumulating obsolete records.
+    """
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    snapshot = {row.content_hash: row for row in rows}
+    if not snapshot:
+        raise ValueError("Refusing to ingest an empty snapshot")
+    dialect = db.get_bind().dialect.name
+    if dialect not in {"postgresql", "sqlite"}:
+        raise ValueError(f"Unsupported database dialect: {dialect}")
+    insert = pg_insert if dialect == "postgresql" else sqlite_insert
+    values = [
+        {"id": sid, "source": row.source, "entry": row.entry, "year": row.year}
+        for sid, row in snapshot.items()
+    ]
+    try:
+        for offset in range(0, len(values), batch_size):
+            stmt = insert(Statue).values(values[offset : offset + batch_size])
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[Statue.id],
+                set_={
+                    "source": stmt.excluded.source,
+                    "entry": stmt.excluded.entry,
+                    "year": stmt.excluded.year,
+                },
+            )
+            db.execute(stmt)
+        db.execute(delete(Statue).where(Statue.id.not_in(list(snapshot))))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return len(snapshot)
 
 
 def run_ingest(csv_path: Path) -> int:

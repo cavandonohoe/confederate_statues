@@ -135,6 +135,7 @@ the same:
 
 ```python
 import pandas as pd
+
 df = pd.DataFrame(httpx.get(f"{BASE}/statues?limit=500").json()["items"])
 ```
 
@@ -248,7 +249,9 @@ so a client can render a pager without an extra round-trip.
 ### `GET /statues/{statue_id}`
 
 Single entry by id. The id is a SHA-256 hex digest of
-`(source, entry, year)` — stable across re-ingests of the same row.
+`(source, normalized entry, year)`. Citation markers and whitespace are
+normalized for the ID; the original description is still returned. Citation
+renumbering preserves IDs. Other text changes can change IDs.
 
 **Responses**
 
@@ -323,7 +326,7 @@ the latter to generate clients in any language via
             │                                                  ▼
             │  data/confederate_statue_dates.csv     ┌──────────────────────┐
             └──────────────────────────────────────► │ statue-api ingest    │
-                                                     │ (idempotent upsert)  │
+                                                     │ (snapshot sync)  │
                                                      └──────────┬───────────┘
                                                                 │
                                                                 ▼
@@ -398,3 +401,13 @@ before the new code starts serving, so the schema is always consistent
 with the running version. The CSV ingest is a separate one-shot command
 you run via `fly ssh console -C 'statue-api ingest --csv ...'` or via
 a scheduled GitHub Action that targets the deployed instance.
+
+
+### Snapshot ingest behavior
+
+`statue-api ingest --csv ...` expects the complete canonical CSV, not an
+incremental batch. It validates all rows before writes, upserts current
+records, and removes records absent from the snapshot in one transaction.
+Empty snapshots and malformed rows fail without changing stored data.
+The first ingest after upgrading replaces legacy IDs that included citation
+markers; clients storing those IDs will need to refresh their references.

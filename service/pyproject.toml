@@ -61,6 +61,7 @@ select = [
 ]
 ignore = [
     "PLR0913",
+    "PLR0917",  # FastAPI query parameters are injected by name.
     "PLC0415",
     "S101",
     "PT011",
