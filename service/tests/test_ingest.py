@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 import pytest
@@ -134,3 +135,41 @@ def test_duplicate_citation_variants_collapse(db_session):
     rows = [StatueRow("georgia", "Monument[1]", 1909), StatueRow("georgia", "Monument[2]", 1909)]
     assert upsert_rows(db_session, rows) == 1
     assert len(list(db_session.scalars(select(Statue)))) == 1
+
+
+@pytest.mark.parametrize("header", ["source,entry,year,year", "year,entry,source"])
+def test_parse_csv_rejects_noncanonical_header(tmp_path, header):
+    path = tmp_path / "headers.csv"
+    path.write_text(header + "\n")
+    with pytest.raises(ValueError, match="CSV header mismatch"):
+        list(parse_csv(path))
+
+
+def test_unclosed_quote_preserves_database(db_session, tmp_path):
+    row = StatueRow("georgia", "Existing monument", 1909)
+    upsert_rows(db_session, [row])
+    path = tmp_path / "quotes.csv"
+    path.write_text('source,entry,year\nalabama,New,"1910')
+    with pytest.raises(csv.Error):
+        upsert_rows(db_session, parse_csv(path))
+    assert [r.id for r in db_session.scalars(select(Statue))] == [row.content_hash]
+
+
+def test_write_failure_rolls_back_snapshot(db_session, monkeypatch):
+    original = StatueRow("georgia", "Existing monument", 1909)
+    upsert_rows(db_session, [original])
+    execute = db_session.execute
+    calls = 0
+
+    def fail_during_delete(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("simulated write failure")
+        return execute(*args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(db_session, "execute", fail_during_delete)
+        with pytest.raises(RuntimeError, match="simulated write failure"):
+            upsert_rows(db_session, [StatueRow("alabama", "New monument", 1910)])
+    assert [r.id for r in db_session.scalars(select(Statue))] == [original.content_hash]

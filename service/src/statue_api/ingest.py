@@ -44,13 +44,10 @@ class StatueRow:
 def parse_csv(path: Path) -> Iterable[StatueRow]:
     """Yield validated rows from the upstream CSV."""
     with path.open(newline="", encoding="utf-8") as fh:
-        reader = csv.DictReader(fh)
-        expected = {"source", "entry", "year"}
-        if reader.fieldnames is None or set(reader.fieldnames) != expected:
-            raise ValueError(
-                f"CSV header mismatch. Expected {sorted(expected)}, "
-                f"got {sorted(reader.fieldnames or [])}"
-            )
+        reader = csv.DictReader(fh, strict=True)
+        expected = ["source", "entry", "year"]
+        if reader.fieldnames != expected:
+            raise ValueError(f"CSV header mismatch. Expected {expected}, got {reader.fieldnames}")
         for line_number, raw in enumerate(reader, start=2):
             if None in raw or any(value is None for value in raw.values()):
                 raise ValueError(f"Malformed CSV row at line {line_number}")

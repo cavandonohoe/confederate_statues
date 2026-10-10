@@ -91,4 +91,10 @@ jobs:
             data/confederate_statue_dates.csv
             README.md
             README_files/**
-            plots.html
+
+      - name: Upload standalone HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: statues-report
+          path: plots.html
+          if-no-files-found: error
