@@ -81,3 +81,46 @@ test_that("tidy_statues output is sorted by source, year, entry", {
   result <- tidy_statues(raw_fixture(), year_max = 2030)
   expect_equal(result$source, sort(result$source))
 })
+
+# ----------------------------------------------------------------------------
+# Snapshot shrink guard
+# ----------------------------------------------------------------------------
+
+snapshot_of <- function(counts) {
+  data.frame(source = rep(names(counts), times = counts))
+}
+
+test_that("check_snapshot_shrink accepts unchanged and modestly smaller snapshots", {
+  current <- snapshot_of(c(alabama = 10, georgia = 10))
+  expect_length(check_snapshot_shrink(current, current), 0)
+  expect_length(check_snapshot_shrink(snapshot_of(c(alabama = 9, georgia = 9)), current), 0)
+  expect_length(check_snapshot_shrink(current, current[0, , drop = FALSE]), 0)
+})
+
+test_that("check_snapshot_shrink flags a truncated snapshot", {
+  current <- snapshot_of(c(alabama = 10, georgia = 10))
+  problems <- check_snapshot_shrink(snapshot_of(c(alabama = 10, georgia = 4)), current)
+  expect_true(any(grepl("total rows would drop from 20 to 14", problems)))
+  expect_true(any(grepl("source 'georgia' would drop from 10 to 4", problems)))
+})
+
+test_that("check_snapshot_shrink flags a source that disappears", {
+  current <- snapshot_of(c(alabama = 2, georgia = 18))
+  problems <- check_snapshot_shrink(snapshot_of(c(georgia = 18)), current)
+  expect_equal(problems, "source 'alabama' would drop from 2 to 0 (more than 50%)")
+})
+
+test_that("check_snapshot_shrink thresholds are configurable", {
+  current <- snapshot_of(c(alabama = 10))
+  new <- snapshot_of(c(alabama = 7))
+  expect_length(check_snapshot_shrink(new, current), 1)
+  expect_length(check_snapshot_shrink(new, current, max_total_shrink = 0.5), 0)
+})
+
+test_that("shrink_override_requested honors --force and STATUE_ALLOW_SHRINK", {
+  withr::local_envvar(STATUE_ALLOW_SHRINK = "")
+  expect_false(shrink_override_requested(character()))
+  expect_true(shrink_override_requested("--force"))
+  withr::local_envvar(STATUE_ALLOW_SHRINK = "true")
+  expect_true(shrink_override_requested(character()))
+})

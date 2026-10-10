@@ -95,6 +95,44 @@ if (length(missing_sources) > 0) {
   )
 }
 
+# 7. Shrink guard. A refresh replaces the whole snapshot and the service
+#    ingest deletes rows that disappear, so a truncated-but-well-formed parse
+#    must not pass. Compare against the baseline dataset: `--baseline=<path>`
+#    if given, otherwise the committed copy at git HEAD. Override with
+#    `--force` or STATUE_ALLOW_SHRINK=true when a large removal is intended.
+args <- commandArgs(trailingOnly = TRUE)
+baseline_arg <- sub("^--baseline=", "", grep("^--baseline=", args, value = TRUE))
+baseline <- NULL
+if (length(baseline_arg) > 0) {
+  baseline <- utils::read.csv(baseline_arg[[1]], stringsAsFactors = FALSE)
+  baseline_label <- baseline_arg[[1]]
+} else {
+  head_csv <- suppressWarnings(system2(
+    "git",
+    c("-C", shQuote(repo_root), "show", "HEAD:data/confederate_statue_dates.csv"),
+    stdout = TRUE, stderr = FALSE
+  ))
+  if (is.null(attr(head_csv, "status")) && length(head_csv) > 0) {
+    baseline <- utils::read.csv(text = head_csv, stringsAsFactors = FALSE)
+    baseline_label <- "git HEAD"
+  } else {
+    message("Shrink guard skipped: no baseline (pass --baseline=<path>).")
+  }
+}
+if (!is.null(baseline)) {
+  problems <- check_snapshot_shrink(data, baseline)
+  if (length(problems) > 0 && !shrink_override_requested(args)) {
+    fail(
+      "dataset shrinks too much vs ", baseline_label, ": ",
+      paste(problems, collapse = "; "),
+      ". Re-run with --force or STATUE_ALLOW_SHRINK=true if intended."
+    )
+  }
+  if (length(problems) > 0) {
+    message("Shrink guard overridden: ", paste(problems, collapse = "; "))
+  }
+}
+
 message(
   "Validation OK: ", nrow(data), " rows across ",
   length(present), " sources; years in [",

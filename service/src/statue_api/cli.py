@@ -6,12 +6,17 @@ import argparse
 import sys
 from pathlib import Path
 
-from statue_api.ingest import run_ingest
+from statue_api.ingest import SnapshotShrinkError, run_ingest
 from statue_api.logging_config import configure_logging, get_logger
 
 
 def _ingest(args: argparse.Namespace) -> int:
-    n = run_ingest(Path(args.csv))
+    force = True if args.force else None
+    try:
+        n = run_ingest(Path(args.csv), force=force)
+    except SnapshotShrinkError as exc:
+        print(f"Ingest refused: {exc}", file=sys.stderr)
+        return 1
     print(f"Ingested {n} rows.")
     return 0
 
@@ -41,6 +46,14 @@ def main(argv: list[str] | None = None) -> int:
         "--csv",
         default="../data/confederate_statue_dates.csv",
         help="Path to the upstream CSV.",
+    )
+    p_ingest.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Apply the snapshot even if it drops more rows than the shrink guard "
+            "allows (same as STATUE_API_ALLOW_SHRINK=true)."
+        ),
     )
     p_ingest.set_defaults(func=_ingest)
 

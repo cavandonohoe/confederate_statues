@@ -148,7 +148,7 @@ open http://localhost:8000/docs
 Then query it from anywhere. A few examples:
 
 ``` bash
-# Counts per decade -- one line per histogram bar
+# Entry counts per decade (the chart above uses 5-year bins)
 curl -s http://localhost:8000/stats/by-decade
 
 # Filtered list: Georgia entries from the 1900-1910 spike

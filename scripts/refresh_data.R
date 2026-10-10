@@ -52,6 +52,15 @@ message(
   length(unique(clean$source)), " sources. Writing to ", out_path
 )
 dir.create(dirname(out_path), showWarnings = FALSE, recursive = TRUE)
-write.csv(clean, out_path, row.names = FALSE)
+# Write to a temp file in the same directory, then rename over the target so
+# an interrupted run never leaves a truncated CSV behind.
+tmp_path <- tempfile(
+  pattern = ".confederate_statue_dates-", tmpdir = dirname(out_path), fileext = ".csv"
+)
+write.csv(clean, tmp_path, row.names = FALSE)
+if (!file.rename(tmp_path, out_path)) {
+  unlink(tmp_path)
+  stop("Failed to move ", tmp_path, " into place at ", out_path)
+}
 
 message("Done.")

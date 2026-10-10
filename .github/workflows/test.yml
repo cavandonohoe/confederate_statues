@@ -74,7 +74,19 @@ jobs:
           Rscript scripts/validate_data.R
           Rscript -e 'rmarkdown::render("README.Rmd"); rmarkdown::render("plots.Rmd")'
 
+      # The committed CSV must be exactly what the pipeline produces from the
+      # committed data-raw/ snapshots. README.md / README_files are not
+      # checked here: their rendering depends on the pandoc/graphics stack, so
+      # a byte diff would flag formatting churn rather than stale data.
+      - name: Fail if committed dataset is stale
+        run: |
+          if ! git diff --exit-code --stat -- data/; then
+            echo "::error::data/ is out of date with data-raw/. Run Rscript scripts/refresh_data.R and commit the result."
+            exit 1
+          fi
+
       - name: Upload regenerated data and charts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: regenerated-statues
