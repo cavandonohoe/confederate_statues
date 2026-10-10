@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 
-from statue_api.ingest import StatueRow, parse_csv
+from statue_api.ingest import StatueRow, parse_csv, upsert_rows
+from statue_api.models import Statue
 
 
 def _write_csv(path: Path, rows: list[dict[str, str]]) -> None:
@@ -43,7 +46,7 @@ def test_parse_csv_happy_path(tmp_path):
     assert rows[0] == StatueRow("alabama", "Bullock County (1866)", 1866)
 
 
-def test_parse_csv_skips_bad_year(tmp_path):
+def test_parse_csv_rejects_bad_year(tmp_path):
     csv_path = tmp_path / "x.csv"
     _write_csv(
         csv_path,
@@ -52,12 +55,11 @@ def test_parse_csv_skips_bad_year(tmp_path):
             {"source": "alabama", "entry": "Bad Year", "year": "nineteen-oh-five"},
         ],
     )
-    rows = list(parse_csv(csv_path))
-    assert len(rows) == 1
-    assert rows[0].entry == "Good Row"
+    with pytest.raises(ValueError, match="Invalid year"):
+        list(parse_csv(csv_path))
 
 
-def test_parse_csv_skips_empty_fields(tmp_path):
+def test_parse_csv_rejects_empty_fields(tmp_path):
     csv_path = tmp_path / "x.csv"
     _write_csv(
         csv_path,
@@ -67,9 +69,8 @@ def test_parse_csv_skips_empty_fields(tmp_path):
             {"source": "alabama", "entry": "Real Row", "year": "1900"},
         ],
     )
-    rows = list(parse_csv(csv_path))
-    assert len(rows) == 1
-    assert rows[0].entry == "Real Row"
+    with pytest.raises(ValueError, match="Empty field"):
+        list(parse_csv(csv_path))
 
 
 def test_parse_csv_rejects_wrong_header(tmp_path):
@@ -88,3 +89,87 @@ def test_parse_csv_strips_whitespace(tmp_path):
     rows = list(parse_csv(csv_path))
     assert rows[0].source == "alabama"
     assert rows[0].entry == "My entry"
+
+
+def test_citation_changes_preserve_id():
+    assert StatueRow("georgia", "Monument (1909)[104]", 1909).content_hash == (
+        StatueRow("georgia", "Monument (1909)[105]", 1909).content_hash
+    )
+
+
+def test_ingest_syncs_snapshot_and_removes_legacy_ids(db_session):
+    db_session.add(Statue(id="legacy", source="georgia", entry="Old [104]", year=1909))
+    db_session.commit()
+    original = StatueRow("georgia", "Monument (1909)[104]", 1909)
+    removed = StatueRow("alabama", "Removed (1910)", 1910)
+    assert upsert_rows(db_session, [original, removed], batch_size=1) == 2
+    revised = StatueRow("georgia", "Monument (1909)[105]", 1909)
+    assert upsert_rows(db_session, [revised]) == 1
+    rows = list(db_session.scalars(select(Statue)))
+    assert len(rows) == 1
+    assert rows[0].id == original.content_hash
+    assert rows[0].entry == revised.entry
+    assert upsert_rows(db_session, [revised]) == 1
+    assert len(list(db_session.scalars(select(Statue)))) == 1
+
+
+def test_empty_snapshot_preserves_database(db_session):
+    row = StatueRow("georgia", "Monument", 1909)
+    upsert_rows(db_session, [row])
+    with pytest.raises(ValueError, match="empty snapshot"):
+        upsert_rows(db_session, [])
+    assert db_session.get(Statue, row.content_hash) is not None
+
+
+def test_invalid_csv_preserves_database(db_session, tmp_path):
+    row = StatueRow("georgia", "Monument", 1909)
+    upsert_rows(db_session, [row])
+    csv_path = tmp_path / "invalid.csv"
+    csv_path.write_text("source,entry,year\nalabama,New,1910\ngeorgia,Bad,oops\n")
+    with pytest.raises(ValueError, match="Invalid year"):
+        upsert_rows(db_session, parse_csv(csv_path), batch_size=1)
+    assert [r.id for r in db_session.scalars(select(Statue))] == [row.content_hash]
+
+
+def test_duplicate_citation_variants_collapse(db_session):
+    rows = [StatueRow("georgia", "Monument[1]", 1909), StatueRow("georgia", "Monument[2]", 1909)]
+    assert upsert_rows(db_session, rows) == 1
+    assert len(list(db_session.scalars(select(Statue)))) == 1
+
+
+@pytest.mark.parametrize("header", ["source,entry,year,year", "year,entry,source"])
+def test_parse_csv_rejects_noncanonical_header(tmp_path, header):
+    path = tmp_path / "headers.csv"
+    path.write_text(header + "\n")
+    with pytest.raises(ValueError, match="CSV header mismatch"):
+        list(parse_csv(path))
+
+
+def test_unclosed_quote_preserves_database(db_session, tmp_path):
+    row = StatueRow("georgia", "Existing monument", 1909)
+    upsert_rows(db_session, [row])
+    path = tmp_path / "quotes.csv"
+    path.write_text('source,entry,year\nalabama,New,"1910')
+    with pytest.raises(csv.Error):
+        upsert_rows(db_session, parse_csv(path))
+    assert [r.id for r in db_session.scalars(select(Statue))] == [row.content_hash]
+
+
+def test_write_failure_rolls_back_snapshot(db_session, monkeypatch):
+    original = StatueRow("georgia", "Existing monument", 1909)
+    upsert_rows(db_session, [original])
+    execute = db_session.execute
+    calls = 0
+
+    def fail_during_delete(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("simulated write failure")
+        return execute(*args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(db_session, "execute", fail_during_delete)
+        with pytest.raises(RuntimeError, match="simulated write failure"):
+            upsert_rows(db_session, [StatueRow("alabama", "New monument", 1910)])
+    assert [r.id for r in db_session.scalars(select(Statue))] == [original.content_hash]

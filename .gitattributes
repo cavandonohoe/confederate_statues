@@ -1,0 +1,3 @@
+# Cached source data and generated figures are not implementation code.
+data-raw/*.html linguist-generated=true
+README_files/** linguist-generated=true

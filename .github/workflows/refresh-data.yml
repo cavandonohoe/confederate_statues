@@ -35,6 +35,8 @@ jobs:
             any::here
             any::rlang
             any::testthat
+            any::tidyverse
+            any::rmarkdown
 
       - name: Re-download raw HTML from Wikipedia
         run: Rscript scripts/refetch_raw.R
@@ -59,6 +61,10 @@ jobs:
       - name: Validate regenerated dataset
         run: Rscript scripts/validate_data.R
 
+      - name: Rebuild README and HTML charts from validated data
+        run: |
+          Rscript -e 'rmarkdown::render("README.Rmd"); rmarkdown::render("plots.Rmd")'
+
       - name: Open PR if data changed
         uses: peter-evans/create-pull-request@v6
         with:
@@ -73,6 +79,8 @@ jobs:
                pipeline against `data-raw/` and rewrote
                `data/confederate_statue_dates.csv`.
 
+            Tests and dataset validation passed before both charts were rebuilt.
+
             If the diff looks unexpected, check whether any source
             page changed its structure (the parser keys off `(YYYY)`
             tokens in the page text).
@@ -81,3 +89,12 @@ jobs:
           add-paths: |
             data-raw/*.html
             data/confederate_statue_dates.csv
+            README.md
+            README_files/**
+
+      - name: Upload standalone HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: statues-report
+          path: plots.html
+          if-no-files-found: error
