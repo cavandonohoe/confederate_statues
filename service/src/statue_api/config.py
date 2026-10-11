@@ -34,6 +34,13 @@ class Settings(BaseSettings):
         default_factory=lambda: ["*"],
         description="CORS allow-origins list.",
     )
+    allow_shrink: bool = Field(
+        default=False,
+        description=(
+            "Let `statue-api ingest` apply a snapshot that drops more rows than "
+            "the shrink guard allows. Equivalent to `--force`."
+        ),
+    )
     page_size_default: int = Field(default=50, ge=1, le=500)
     page_size_max: int = Field(default=500, ge=1, le=1000)
 

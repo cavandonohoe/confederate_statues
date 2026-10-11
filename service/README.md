@@ -409,5 +409,13 @@ a scheduled GitHub Action that targets the deployed instance.
 incremental batch. It validates all rows before writes, upserts current
 records, and removes records absent from the snapshot in one transaction.
 Empty snapshots and malformed rows fail without changing stored data.
+Snapshots that would drop more than 20% of stored rows, or more than half
+of any source's rows, are refused before any writes; pass `--force` (or set
+`STATUE_API_ALLOW_SHRINK=true`) when a large removal is intended. Rows whose
+entries normalize to the same ID are merged and logged as
+`ingest_duplicate_id`. ID normalization ignores numbered citations
+(`[1]`, `[1, 2]`, `[1]:23`), named notes (`[note 1]`, `[nb 1]`), attached
+letter notes (`.[a]`), and maintenance tags (`[citation needed]`,
+`[update]`), but keeps editorial brackets inside quotations.
 The first ingest after upgrading replaces legacy IDs that included citation
 markers; clients storing those IDs will need to refresh their references.
