@@ -125,7 +125,7 @@ jobs:
           Rscript -e 'rmarkdown::render("README.Rmd"); rmarkdown::render("plots.Rmd")'
 
       - name: Open PR if data changed
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "Refresh confederate_statue_dates.csv"
           title: "Refresh monthly dataset"
