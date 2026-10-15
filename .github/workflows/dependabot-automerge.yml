@@ -1,0 +1,137 @@
+name: Dependabot auto-merge
+
+# Squash-merge Dependabot PRs once every other check on the PR has passed.
+# Minor/patch bumps merge on their own; major bumps (including any grouped PR
+# that contains one) and PRs with unparsable versions stay open for review.
+#
+# pull_request_target runs in the base-repo context (secrets available) and
+# this workflow never checks out or executes PR code. It only reads check
+# results and calls the merge API.
+#
+# Token: tries BOT_PR_TOKEN (a PAT, needed for PRs that edit workflow files
+# and so pushes to main trigger downstream workflows), then GITHUB_TOKEN.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: dependabot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  merge:
+    name: Dependabot auto-merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    env:
+      GH_REPO: ${{ github.repository }}
+      NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+      SELF_CHECK: Dependabot auto-merge
+      BOT_PR_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+      DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Classify update
+        id: classify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Dependabot embeds `update-type: version-update:semver-<level>`
+          # per dependency in the commit message.
+          msg=$(gh api "repos/$GH_REPO/commits/$HEAD_SHA" --jq '.commit.message')
+          types=$(grep -oE 'update-type: version-update:semver-[a-z]+' <<<"$msg" \
+            | sed 's/.*semver-//' | sort -u | tr '\n' ' ' || true)
+
+          # Security updates omit update-type, so fall back to the
+          # "from X to Y" version pairs. For 0.x, a minor bump counts as major.
+          if [ -z "$types" ]; then
+            types=$(grep -oE 'from v?[0-9][^ ]* to v?[0-9][^ ]*' <<<"$msg" \
+              | sed 's/ v/ /g' \
+              | awk '{
+                  split($2, a, "."); split($4, b, ".");
+                  if (a[1] != b[1] || (a[1] == "0" && a[2] != b[2])) print "major";
+                  else print "minor-or-patch"
+                }' | sort -u | tr '\n' ' ' || true)
+          fi
+          echo "PR #$NUMBER update types: ${types:-unknown}"
+
+          if [ -z "$types" ]; then
+            echo "::notice::No parseable version info; leaving PR #$NUMBER for manual review."
+            exit 0
+          fi
+          if grep -qw major <<<"$types"; then
+            echo "::notice::PR #$NUMBER includes a major bump; leaving for manual review."
+            exit 0
+          fi
+          echo "eligible=true" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for other checks
+        id: checks
+        if: steps.classify.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Give the PR's other workflows time to register their check runs.
+          sleep 60
+          deadline=$(( $(date +%s) + 45 * 60 ))
+          while :; do
+            runs=$(gh api --paginate "repos/$GH_REPO/commits/$HEAD_SHA/check-runs" \
+              --jq '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv' \
+              | awk -F'\t' -v self="$SELF_CHECK" 'NF && $1 != self')
+            pending=$(awk -F'\t' 'NF && $2 != "completed"' <<<"$runs" | wc -l | tr -d ' ')
+            if [ "$pending" = "0" ]; then
+              break
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::notice::Checks still pending after 45 minutes; leaving PR #$NUMBER."
+              exit 0
+            fi
+            sleep 30
+          done
+
+          echo "$runs" | sed '/^$/d' | sed 's/^/  /'
+          bad=$(awk -F'\t' 'NF && $3 != "success" && $3 != "neutral" && $3 != "skipped"' \
+            <<<"$runs" || true)
+          if [ -n "$bad" ]; then
+            echo "::notice::Not all checks passed; leaving PR #$NUMBER for manual review."
+            exit 0
+          fi
+          passed=$(awk -F'\t' 'NF && $3 == "success"' <<<"$runs" | wc -l | tr -d ' ')
+          # Dependency bumps with nothing that actually tested them stay manual.
+          # GitHub Actions bumps are exempt: the workflows themselves are the test.
+          if [ "$passed" = "0" ] && [[ "$HEAD_BRANCH" != dependabot/github_actions/* ]]; then
+            echo "::notice::No checks ran against PR #$NUMBER; leaving for manual review."
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Squash-merge
+        if: steps.checks.outputs.ready == 'true'
+        run: |
+          set -uo pipefail
+          for label in BOT_PR_TOKEN GITHUB_TOKEN; do
+            if [ "$label" = "BOT_PR_TOKEN" ]; then
+              token="$BOT_PR_TOKEN"
+            else
+              token="$DEFAULT_TOKEN"
+            fi
+            if [ -z "$token" ]; then
+              continue
+            fi
+            if GH_TOKEN="$token" gh pr merge "$NUMBER" --squash \
+              --match-head-commit "$HEAD_SHA"; then
+              echo "::notice::Merged PR #$NUMBER with $label."
+              exit 0
+            fi
+            echo "::warning::Merge with $label failed."
+          done
+          echo "::warning::Could not merge PR #$NUMBER with any available token; leaving it open."
