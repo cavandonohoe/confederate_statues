@@ -31,7 +31,7 @@ jobs:
       run:
         working-directory: service
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -77,7 +77,7 @@ jobs:
     env:
       STATUE_API_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/statues_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -115,7 +115,7 @@ jobs:
     timeout-minutes: 10
     needs: [lint-and-type, test]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v3
 
