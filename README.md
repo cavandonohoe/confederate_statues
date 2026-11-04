@@ -70,7 +70,8 @@ during tests).
 | Refresh script | `scripts/refresh_data.R`             | Parses `data-raw/*.html` -\> cleans -\> writes the CSV. Offline.                                                                                      |
 | Refetch script | `scripts/refetch_raw.R`              | Re-downloads HTML from Wikipedia into `data-raw/`. Network.                                                                                           |
 | CI             | `.github/workflows/test.yml`         | Runs both test files on push and PR.                                                                                                                  |
-| CI             | `.github/workflows/refresh-data.yml` | Monthly cron: runs refetch -\> refresh, opens a PR if anything changed.                                                                               |
+| CI             | `.github/workflows/refresh-data.yml` | Monthly cron: runs refetch -\> refresh -\> tests, validation and a Postgres smoke ingest, then pushes straight to `main` if anything changed. A failed check fails the job instead. |
+| CI             | `.github/workflows/scheduled-failure-alert.yml` | Opens an issue when the scheduled refresh fails and closes it on the next green run. |
 
 To regenerate the dataset locally (offline, from the checked-in HTML):
 
@@ -116,7 +117,8 @@ A few things to keep in mind when reading the chart:
 - **The dataset reflects whatever Wikipedia looked like on the last
   refresh.** The monthly scheduled job in
   `.github/workflows/refresh-data.yml` keeps `data-raw/` and the CSV in
-  sync, and the diff lands as a PR for review.
+  sync. A green run commits straight to `main`; a failing run opens an
+  issue instead.
 
 ## REST API service
 
