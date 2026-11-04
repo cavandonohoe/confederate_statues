@@ -117,6 +117,18 @@ test_that("check_snapshot_shrink thresholds are configurable", {
   expect_length(check_snapshot_shrink(new, current, max_total_shrink = 0.5), 0)
 })
 
+test_that("check_snapshot_growth flags only suspicious growth", {
+  current <- snapshot_of(c(alabama = 50, georgia = 50))
+  expect_length(check_snapshot_growth(snapshot_of(c(alabama = 55, georgia = 54)), current), 0)
+  expect_length(check_snapshot_growth(snapshot_of(c(alabama = 80, georgia = 50)), current), 1)
+  expect_length(check_snapshot_growth(current, current[0, , drop = FALSE]), 0)
+})
+
+test_that("refresh limits are stricter than the service defaults", {
+  expect_lt(STATUE_REFRESH_MAX_TOTAL_SHRINK, STATUE_MAX_TOTAL_SHRINK)
+  expect_lt(STATUE_REFRESH_MAX_SOURCE_SHRINK, STATUE_MAX_SOURCE_SHRINK)
+})
+
 test_that("shrink_override_requested honors --force and STATUE_ALLOW_SHRINK", {
   withr::local_envvar(STATUE_ALLOW_SHRINK = "")
   expect_false(shrink_override_requested(character()))

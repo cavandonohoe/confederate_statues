@@ -150,9 +150,14 @@ jobs:
             exit 1
           fi
 
-          added="$(git diff --cached --numstat -- data/confederate_statue_dates.csv | cut -f1)"
-          removed="$(git diff --cached --numstat -- data/confederate_statue_dates.csv | cut -f2)"
-          git commit -m "Refresh confederate_statue_dates.csv (+${added:-0} / -${removed:-0} rows)"
+          # Count rows, ignoring Wikipedia's renumbered [n] citation markers
+          # so footnote churn does not read as hundreds of changed rows.
+          norm() { sed -E 's/\[[0-9]+\]//g' | sort -u; }
+          git show HEAD:data/confederate_statue_dates.csv | norm > "$RUNNER_TEMP/old.csv"
+          norm < data/confederate_statue_dates.csv > "$RUNNER_TEMP/new.csv"
+          added="$(comm -13 "$RUNNER_TEMP/old.csv" "$RUNNER_TEMP/new.csv" | wc -l | tr -d ' ')"
+          removed="$(comm -23 "$RUNNER_TEMP/old.csv" "$RUNNER_TEMP/new.csv" | wc -l | tr -d ' ')"
+          git commit -m "Refresh confederate_statue_dates.csv (+${added} / -${removed} rows)"
 
           for i in 1 2 3; do
             if git push origin HEAD:main; then

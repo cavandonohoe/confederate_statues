@@ -105,6 +105,35 @@ check_snapshot_shrink <- function(new,
   problems
 }
 
+#' Stricter limits for the unattended monthly refresh, which commits to
+#' `main` without a human reading the diff. Month-to-month churn on the real
+#' data is a few rows, so these leave plenty of headroom.
+STATUE_REFRESH_MAX_TOTAL_SHRINK <- 0.05
+STATUE_REFRESH_MAX_SOURCE_SHRINK <- 0.15
+STATUE_REFRESH_MAX_TOTAL_GROWTH <- 0.10
+
+#' Report a snapshot that grows suspiciously versus the current dataset.
+#'
+#' A parser that starts matching page chrome or reference lists inflates the
+#' dataset just as a broken one truncates it.
+#'
+#' @param new,current Data frames (one row per entry).
+#' @param max_total_growth Largest allowed fractional rise in total rows.
+#' @return A character vector of problems; empty when the snapshot is OK.
+check_snapshot_growth <- function(new,
+                                  current,
+                                  max_total_growth = STATUE_REFRESH_MAX_TOTAL_GROWTH) {
+  n_current <- nrow(current)
+  n_new <- nrow(new)
+  if (n_current > 0 && n_new > n_current * (1 + max_total_growth)) {
+    return(sprintf(
+      "total rows would grow from %d to %d (more than %.0f%%)",
+      n_current, n_new, 100 * max_total_growth
+    ))
+  }
+  character()
+}
+
 #' Whether the shrink guard has been explicitly overridden.
 #'
 #' True when `--force` is passed on the command line or

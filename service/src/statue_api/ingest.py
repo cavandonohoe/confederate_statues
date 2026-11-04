@@ -252,6 +252,7 @@ def upsert_rows(
                     "source": stmt.excluded.source,
                     "entry": stmt.excluded.entry,
                     "year": stmt.excluded.year,
+                    "updated_at": func.now(),
                 },
             )
             db.execute(stmt)
