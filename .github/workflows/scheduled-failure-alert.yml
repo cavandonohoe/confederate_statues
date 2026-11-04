@@ -1,0 +1,41 @@
+name: Scheduled workflow failure alert
+
+# Opens one issue when the scheduled data refresh fails and closes it on the
+# next green scheduled run.
+on:
+  workflow_run:
+    workflows:
+      - "Refresh dataset"
+    types: [completed]
+
+permissions:
+  actions: read
+  issues: write
+
+jobs:
+  alert:
+    if: ${{ github.event.workflow_run.event == 'schedule' && (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open, update or close the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          title="Scheduled workflow failing: ${WORKFLOW_NAME}"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 200 \
+            --json number,title | jq -r --arg t "$title" '.[] | select(.title==$t) | .number' | head -1)
+          if [ "$CONCLUSION" = "failure" ]; then
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "Failed again: ${RUN_URL}"
+            else
+              body="The scheduled run failed: ${RUN_URL} (this issue closes itself on the next successful scheduled run)"
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+            fi
+          elif [ -n "$existing" ]; then
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "Recovered on the next scheduled run: ${RUN_URL}"
+          fi

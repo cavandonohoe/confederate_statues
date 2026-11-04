@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
   group: refresh-data
@@ -24,7 +23,7 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # The refresh PR is opened with GITHUB_TOKEN, which does not trigger
+    # The refresh is pushed with GITHUB_TOKEN, which does not trigger
     # other workflows, so the service ingest is smoke-tested here against
     # the same Postgres version service-ci uses.
     services:
@@ -74,10 +73,10 @@ jobs:
       - name: Regenerate dataset from raw HTML
         run: Rscript scripts/refresh_data.R
 
-      # Validate the freshly regenerated dataset before opening a PR.
-      # The refresh PR is authored by the GITHUB_TOKEN bot, so it does
-      # not trigger the R tests workflow; run the same checks here so a
-      # broken Wikipedia parse can't land as a green "no checks" PR.
+      # Validate the freshly regenerated dataset before committing it.
+      # A push made with GITHUB_TOKEN does not trigger the R tests
+      # workflow, so run the same checks here; a broken Wikipedia parse
+      # must fail the job rather than land on main.
       - name: Run testthat suite
         run: |
           Rscript -e '
@@ -124,35 +123,46 @@ jobs:
         run: |
           Rscript -e 'rmarkdown::render("README.Rmd"); rmarkdown::render("plots.Rmd")'
 
-      - name: Open PR if data changed
-        uses: peter-evans/create-pull-request@v8
-        with:
-          commit-message: "Refresh confederate_statue_dates.csv"
-          title: "Refresh monthly dataset"
-          body: |
-            Automated monthly refresh of the dataset.
+      # Everything above is the gate: a failed test, validation, shrink
+      # guard or smoke ingest fails the job before anything is committed,
+      # and the scheduled-failure-alert workflow opens an issue. A green run
+      # commits straight to main.
+      - name: Commit and push if changed
+        run: |
+          set -euo pipefail
 
-            1. `scripts/refetch_raw.R` re-downloaded the Wikipedia
-               source pages to `data-raw/`.
-            2. `scripts/refresh_data.R` re-ran the scrape -> clean
-               pipeline against `data-raw/` and rewrote
-               `data/confederate_statue_dates.csv`.
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-            Tests, dataset validation (including the shrink guard against
-            the committed dataset), the service test suite, and a Postgres
-            smoke ingest of committed -> regenerated data all passed before
-            both charts were rebuilt.
+          git add data-raw/*.html data/confederate_statue_dates.csv README.md README_files
 
-            If the diff looks unexpected, check whether any source
-            page changed its structure (the parser keys off `(YYYY)`
-            tokens in the page text).
-          branch: bot/refresh-data
-          delete-branch: true
-          add-paths: |
-            data-raw/*.html
-            data/confederate_statue_dates.csv
-            README.md
-            README_files/**
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+
+          unexpected="$(git diff --cached --name-only \
+            | grep -Ev '^(data-raw/[a-z_]+\.html|data/confederate_statue_dates\.csv|README\.md|README_files/.*)$' \
+            || true)"
+          if [ -n "$unexpected" ]; then
+            echo "ERROR: refusing to commit unexpected files:"
+            echo "$unexpected"
+            exit 1
+          fi
+
+          added="$(git diff --cached --numstat -- data/confederate_statue_dates.csv | cut -f1)"
+          removed="$(git diff --cached --numstat -- data/confederate_statue_dates.csv | cut -f2)"
+          git commit -m "Refresh confederate_statue_dates.csv (+${added:-0} / -${removed:-0} rows)"
+
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push failed; rebasing on remote and retrying ($i/3)..."
+            git pull --rebase origin main
+          done
+          echo "ERROR: failed to push the refresh after 3 attempts."
+          exit 1
 
       - name: Upload standalone HTML report
         uses: actions/upload-artifact@v7
