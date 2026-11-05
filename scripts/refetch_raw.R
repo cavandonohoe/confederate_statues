@@ -28,7 +28,7 @@ for (i in seq_along(STATE_URLS)) {
   out <- file.path(raw_dir, paste0(src, ".html"))
   message("Downloading ", src, " -> ", out)
   page <- rvest::read_html(url)
-  writeLines(as.character(page), out)
+  writeLines(strip_volatile_html(as.character(page)), out)
 }
 
 message("Done. Run scripts/refresh_data.R next to regenerate the CSV.")

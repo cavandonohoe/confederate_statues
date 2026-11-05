@@ -212,7 +212,6 @@ committing its embedded scripts and images. The monthly refresh uploads
 The portfolio website imports the CSV from this repository’s `main`
 branch and renders its own `confederate_statues.Rmd`. It does not use
 `plots.html`. Changes to that page’s labels or plotting logic must be
-made in the website repository; this repository’s README chart uses
-centered five-year histogram bins, while the website currently uses
-five-year bins starting at the minimum year. Their bar boundaries
-therefore differ even with identical CSV data.
+made in the website repository; this repository’s README chart and the
+website both use centered five-year bins, so their bar boundaries match
+for identical CSV data.

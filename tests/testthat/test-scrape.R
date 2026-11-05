@@ -134,6 +134,28 @@ test_that("parser keeps first and last lines without surrounding newlines", {
   expect_equal(result$year, c(1900, 1910))
 })
 
+test_that("parse_dates_from_text drops bibliography items (ISBN / doi)", {
+  text <- paste0(
+    "\nGood entry (1900)\n",
+    "Martin, David G. (1995). Confederate Monuments at Gettysburg. ISBN 978-0938289487.\n",
+    "Smith, J. (2010). A paper. doi:10.1000/xyz\n"
+  )
+  result <- parse_dates_from_text(text)
+  expect_equal(result$year, 1900)
+})
+
+test_that("strip_volatile_html removes per-render comments only", {
+  html <- paste0(
+    "<p>Monument (1900)</p><!-- keep me -->\n",
+    "<!--\nNewPP limit report\nCached time: 20261104005328\n-->",
+    "<!-- Render ID 556cf9a1 -->",
+    "<!-- Saved in parser cache with key x and timestamp 20261104033217 -->"
+  )
+  out <- strip_volatile_html(html)
+  expect_false(grepl("Cached time|Render ID|parser cache|NewPP", out))
+  expect_true(grepl("<p>Monument \\(1900\\)</p><!-- keep me -->", out))
+})
+
 test_that("grab_dates separates adjacent HTML blocks without source newlines", {
   path <- tempfile(fileext = ".html")
   on.exit(unlink(path))

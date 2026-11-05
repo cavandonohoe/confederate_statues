@@ -120,7 +120,14 @@ if (length(baseline_arg) > 0) {
   }
 }
 if (!is.null(baseline)) {
-  problems <- check_snapshot_shrink(data, baseline)
+  problems <- c(
+    check_snapshot_shrink(
+      data, baseline,
+      max_total_shrink = STATUE_REFRESH_MAX_TOTAL_SHRINK,
+      max_source_shrink = STATUE_REFRESH_MAX_SOURCE_SHRINK
+    ),
+    check_snapshot_growth(data, baseline)
+  )
   if (length(problems) > 0 && !shrink_override_requested(args)) {
     fail(
       "dataset shrinks too much vs ", baseline_label, ": ",

@@ -38,6 +38,8 @@ STATE_URLS <- c(
 #' page text; that block is stripped from each line before parsing so a
 #' `(YYYY)` inside a cited work's title cannot leak through as a spurious
 #' entry, while a real entry that merely has the CSS appended keeps its year.
+#' Bibliography items (lines carrying an `ISBN` or `doi:`) are dropped too:
+#' their `(YYYY)` is a publication year.
 #'
 #' @param page_text Character scalar. The full text content of the page,
 #'   typically the result of `rvest::html_text2(rvest::read_html(url))`.
@@ -54,7 +56,8 @@ parse_dates_from_text <- function(page_text) {
     dplyr::filter(grepl("\\(\\d{4}\\)", .data$entry)) |>
     dplyr::filter(!grepl("\\^", .data$entry)) |>
     dplyr::filter(!grepl("\u2191", .data$entry)) |>
-    dplyr::filter(!grepl("^\\d+( \\d+)+ [A-Z\"]", .data$entry))
+    dplyr::filter(!grepl("^\\d+( \\d+)+ [A-Z\"]", .data$entry)) |>
+    dplyr::filter(!grepl("\\bISBN\\b|\\bdoi:", .data$entry))
 
   if (nrow(candidates) == 0) {
     return(tibble::tibble(
@@ -77,6 +80,20 @@ parse_dates_from_text <- function(page_text) {
     dplyr::mutate(year = as.numeric(stringr::str_remove_all(.data$year_text, "\\(|\\)")))
 }
 
+#' Remove the per-render HTML comments MediaWiki appends to every page.
+#'
+#' The parser-cache timestamp, render ID and "NewPP limit report" change on
+#' every fetch even when the article is identical, which would otherwise make
+#' every monthly refresh commit thousands of changed lines.
+#'
+#' @param html Character scalar of raw page HTML.
+#' @return `html` without those comments.
+strip_volatile_html <- function(html) {
+  html <- gsub("(?s)<!--\\s*NewPP limit report.*?-->", "", html, perl = TRUE)
+  html <- gsub("(?s)<!--\\s*Render ID[^>]*?-->", "", html, perl = TRUE)
+  gsub("(?s)<!--\\s*Saved in parser cache.*?-->", "", html, perl = TRUE)
+}
+
 #' Fetch a Wikipedia page and parse out monument dates.
 #'
 #' Network IO. For unit tests, use `parse_dates_from_text()` directly on a
@@ -95,7 +112,7 @@ grab_dates <- function(url, cache_dir = NULL) {
   if (!is.null(cache_dir)) {
     dir.create(cache_dir, showWarnings = FALSE, recursive = TRUE)
     fname <- paste0(tools::file_path_sans_ext(basename(url)), ".html")
-    writeLines(as.character(page), file.path(cache_dir, fname))
+    writeLines(strip_volatile_html(as.character(page)), file.path(cache_dir, fname))
   }
 
   parse_dates_from_text(page_text)
