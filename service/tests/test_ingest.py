@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import csv
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -130,14 +130,14 @@ def test_ingest_syncs_snapshot_and_removes_legacy_ids(db_session):
 def test_upsert_bumps_updated_at_when_entry_changes(db_session):
     original = StatueRow("georgia", "Monument (1909)[104]", 1909)
     upsert_rows(db_session, [original])
-    stale = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    stale = datetime(2000, 1, 1, tzinfo=UTC)
     db_session.execute(update(Statue).values(updated_at=stale))
     db_session.commit()
     upsert_rows(db_session, [StatueRow("georgia", "Monument (1909)[105]", 1909)])
     db_session.expire_all()
     row = db_session.scalars(select(Statue)).one()
     assert row.entry == "Monument (1909)[105]"
-    assert row.updated_at.replace(tzinfo=timezone.utc) > stale
+    assert row.updated_at.replace(tzinfo=UTC) > stale
 
 
 def test_empty_snapshot_preserves_database(db_session):
